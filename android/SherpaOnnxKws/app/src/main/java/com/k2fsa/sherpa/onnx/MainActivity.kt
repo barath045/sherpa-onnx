@@ -145,38 +145,36 @@ class MainActivity : AppCompatActivity() {
     private fun processSamples() {
         Log.i(TAG, "processing samples")
 
-        val interval = 0.1 // i.e., 100 ms
-        val bufferSize = (interval * sampleRateInHz).toInt() // in samples
+        val interval = 0.1
+        val bufferSize = (interval * sampleRateInHz).toInt()
         val buffer = ShortArray(bufferSize)
+        var launchJarvis = false
 
         while (isRecording) {
             val ret = audioRecord?.read(buffer, 0, buffer.size)
             if (ret != null && ret > 0) {
                 val samples = FloatArray(ret) { buffer[it] / 32768.0f }
                 stream.acceptWaveform(samples, sampleRate = sampleRateInHz)
+
                 while (kws.isReady(stream)) {
                     kws.decode(stream)
-
                     val text = kws.getResult(stream).keyword
-
                     var textToDisplay = lastText
 
                     if (text.isNotBlank()) {
-                        // Remember to reset the stream right after detecting a keyword
-
                         kws.reset(stream)
-                        if (lastText.isBlank()) {
-                            textToDisplay = "$idx: $text"
-                        } else {
-                            textToDisplay = "$idx: $text\n$lastText"
-                        }
-                        lastText = "$idx: $text\n$lastText"
+                        textToDisplay = "$idx: $text\n$lastText"
+                        lastText = textToDisplay
                         idx += 1
+                        launchJarvis = true
+                        isRecording = false
                     }
 
                     runOnUiThread {
                         textView.text = textToDisplay
                     }
+
+                    if (launchJarvis) break
                 }
             }
         }
@@ -185,11 +183,44 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, "Released stream. Stopped")
 
         audioRecord?.let {
-          it.stop()
-          it.release()
+            try {
+                it.stop()
+            } catch (_: Exception) {
+            }
+            it.release()
         }
-
         audioRecord = null
+
+        if (launchJarvis) {
+            try {
+                val intent = android.content.Intent()
+                intent.setClassName(
+                    "com.termux",
+                    "com.termux.app.RunCommandService"
+                )
+                intent.action = "com.termux.RUN_COMMAND"
+                intent.putExtra(
+                    "com.termux.RUN_COMMAND_PATH",
+                    "/data/data/com.termux/files/usr/bin/bash"
+                )
+                intent.putExtra(
+                    "com.termux.RUN_COMMAND_ARGUMENTS",
+                    arrayOf("/data/data/com.termux/files/home/start_jarvis.sh")
+                )
+                intent.putExtra(
+                    "com.termux.RUN_COMMAND_WORKDIR",
+                    "/data/data/com.termux/files/home"
+                )
+                intent.putExtra(
+                    "com.termux.RUN_COMMAND_BACKGROUND",
+                    false
+                )
+                startService(intent)
+                Log.i(TAG, "JARVIS launch requested")
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not start JARVIS in Termux", e)
+            }
+        }
     }
 
     private fun initMicrophone(): Boolean {
@@ -220,7 +251,7 @@ class MainActivity : AppCompatActivity() {
         // Please change getKwsModelConfig() to add new models
         // See https://k2-fsa.github.io/sherpa/onnx/kws/pretrained_models/index.html
         // for a list of available models
-        val type = 0
+        val type = 1
         Log.i(TAG, "Select model type $type")
         val config = KeywordSpotterConfig(
             featConfig = getFeatureConfig(sampleRate = sampleRateInHz, featureDim = 80),
