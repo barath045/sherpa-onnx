@@ -27,7 +27,10 @@ private const val TAG = "sherpa-onnx"
 private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
 class MainActivity : AppCompatActivity() {
-    private val permissions: Array<String> = arrayOf(Manifest.permission.RECORD_AUDIO)
+    private val permissions: Array<String> = arrayOf(
+        Manifest.permission.RECORD_AUDIO,
+        "com.termux.permission.RUN_COMMAND"
+    )
 
     private lateinit var kws: KeywordSpotter
     private lateinit var stream: OnlineStream
