@@ -21,7 +21,8 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install Android SDK
         run: sdkmanager "platforms;android-32" "build-tools;32.0.0" "ndk;27.0.11718014"
@@ -48,3 +49,4 @@ jobs:
         with:
           name: jarvis-debug-apk
           path: android/SherpaOnnxKws/app/build/outputs/apk/debug/*.apk
+
