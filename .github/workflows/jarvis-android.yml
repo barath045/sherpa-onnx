@@ -45,12 +45,46 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Sign APK with permanent JARVIS key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.JARVIS_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.JARVIS_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.JARVIS_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.JARVIS_KEY_PASSWORD }}
+        run: |
+          set -e
+          KEYSTORE_PATH="$RUNNER_TEMP/jarvis-release.jks"
+          APK_PATH="android/SherpaOnnxKws/app/build/outputs/apk/debug/app-debug.apk"
+          SIGNED_APK="${APK_PATH%.apk}-signed.apk"
+
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          "$ANDROID_HOME/build-tools/32.0.0/apksigner" sign \
+            --ks "$KEYSTORE_PATH" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --key-pass env:KEY_PASSWORD \
+            --out "$SIGNED_APK" \
+            "$APK_PATH"
+
+          mv "$SIGNED_APK" "$APK_PATH"
+          rm -f "$KEYSTORE_PATH"
+
       - name: Check APK permissions
         run: |
           "$ANDROID_HOME/build-tools/32.0.0/aapt" dump permissions android/SherpaOnnxKws/app/build/outputs/apk/debug/app-debug.apk
-          
+
+      - name: Verify APK signature
+        run: |
+          "$ANDROID_HOME/build-tools/32.0.0/apksigner" verify --verbose android/SherpaOnnxKws/app/build/outputs/apk/debug/app-debug.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: jarvis-debug-apk
           path: android/SherpaOnnxKws/app/build/outputs/apk/debug/*.apk
+
 
